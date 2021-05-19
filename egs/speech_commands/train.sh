@@ -50,7 +50,7 @@ if [ ${stage} -le 1 ]; then
             $feat_dir/$train_set/global_cmvn
     fi
 fi
-exit 1
+
 python format_data.py --feat_scp fbank/train_sp/feats.scp --text_file data/train_sp/text --cmvn_file fbank/train_sp/global_cmvn --store_folder /media/newhd/Google_Speech_Commands/features/train --manifest manifest/train
 python format_data.py --feat_scp fbank/test/feats.scp --text_file data/test/text --cmvn_file fbank/train_sp/global_cmvn --store_folder /media/newhd/Google_Speech_Commands/features/test --manifest manifest/test
 python format_data.py --feat_scp fbank/valid/feats.scp --text_file data/valid/text --cmvn_file fbank/train_sp/global_cmvn --store_folder /media/newhd/Google_Speech_Commands/features/valid --manifest manifest/valid
