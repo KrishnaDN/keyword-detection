@@ -1,0 +1,6 @@
+*.ark
+*.scp
+fbank/
+data2/
+manifest/
+data/
