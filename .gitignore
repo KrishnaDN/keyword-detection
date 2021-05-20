@@ -4,3 +4,4 @@ fbank/
 data2/
 manifest/
 data/
+*.pyc
