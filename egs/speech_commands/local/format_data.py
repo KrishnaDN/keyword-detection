@@ -21,30 +21,34 @@ class Format_data:
         self.cmvn_file = cmvn_file
         self.store_folder = store_folder
         self.manifest = manifest
-        self.Label2Indx = labels
+        self.labels = labels
         self.mean, self.istd = load_cmvn(self.cmvn_file, is_json=False)   
         os.makedirs(self.store_folder, exist_ok=True)
-
+        self._get_label_dict
+        self._create_dict
+        
+    @property
+    def _create_dict(self,):
+        self.Label2Indx = dict()
+        for i in range(len(self.labels)):
+            self.Label2Indx[self.labels[i]]=i
     
-    def get_label_dict(self,):
-        label_dict = {}
+    @property
+    def _get_label_dict(self,):
+        self.label_dict = {}
         with open(self.text_file) as fid:
             for line in fid:
-                label_dict[line.rstrip('\n').split(' ')[0]] = line.rstrip('\n').split(' ')[1]
-                
-        return label_dict
-    
+                self.label_dict[line.rstrip('\n').split(' ')[0]] = line.rstrip('\n').split(' ')[1]
 
-    
+
     def process(self, ):
-        label_dict = self.get_label_dict()
         data = kaldiio.load_scp(self.feat_scp)
         with open(self.manifest,'w') as fid:
             for key in data:
                 x = data[key]    
                 x = x - self.mean
                 x = x * self.istd
-                label = self.Label2Indx[label_dict[key]]
+                label = self.Label2Indx[self.label_dict[key]]
                 datum = {'feats':x, 'label':label}
                 save_path = self.store_folder+'/'+str(uuid.uuid1())+'__'+key+'.npy'
                 np.save(save_path, datum)
@@ -61,9 +65,9 @@ if __name__=='__main__':
     parser.add_argument("--store_folder", required=True, type=str)
     parser.add_argument("--manifest", required=True, type=str)
     config = parser.parse_args()
+    print(config.config_file)
     with open(config.config_file,'r') as f:
         params = yaml.safe_load(f)
-
     labels = params['data']['labels']
     formatter = Format_data(config.feat_scp, config.text_file, config.cmvn_file, config.store_folder,config.manifest, labels)
     formatter.process()

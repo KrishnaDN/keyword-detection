@@ -13,7 +13,8 @@ dict=data/dict/lang_char.txt
 manifest=manifest
 train_set=train_sp
 data_url=https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz
-
+save_folder=/media/krishna/krishna/Google_speech_command/
+conf_file=conf/transformer_v2_35.yaml
 cmvn=true
 compress=true
 fbank_conf=conf/fbank.conf
@@ -24,15 +25,15 @@ dir=exp/fbank_sp
 mkdir -p $manifest
 
 ### Download dataset
-#wget $data_url
-#mkdir data2
-#mv ./speech_commands_v0.02.tar.gz ./data2
-#cd ./data2
-#tar -xf ./speech_commands_v0.02.tar.gz
-#cd ../
+wget $data_url
+mkdir data2
+mv ./speech_commands_v0.02.tar.gz ./data2
+cd ./data2
+tar -xf ./speech_commands_v0.02.tar.gz
+cd ../
 
 ### data preperation
-#local/dataset_v2.py --dataset_path ./data2
+local/dataset_v2.py --dataset_path ./data2
 utils/perturb_data_dir_speed.sh 0.9 data/train data/train_sp0.9
 utils/perturb_data_dir_speed.sh 1.1 data/train data/train_sp1.1
 utils/combine_data.sh data/train_sp data/train data/train_sp0.9 data/train_sp1.1
@@ -51,6 +52,8 @@ if [ ${stage} -le 1 ]; then
     fi
 fi
 
-python format_data.py --feat_scp fbank/train_sp/feats.scp --text_file data/train_sp/text --cmvn_file fbank/train_sp/global_cmvn --store_folder /media/newhd/Google_Speech_Commands/features/train --manifest manifest/train
-python format_data.py --feat_scp fbank/test/feats.scp --text_file data/test/text --cmvn_file fbank/train_sp/global_cmvn --store_folder /media/newhd/Google_Speech_Commands/features/test --manifest manifest/test
-python format_data.py --feat_scp fbank/valid/feats.scp --text_file data/valid/text --cmvn_file fbank/train_sp/global_cmvn --store_folder /media/newhd/Google_Speech_Commands/features/valid --manifest manifest/valid
+#cmvn_file=fbank/train_sp/global_cmvn
+#for x in ${train_set} test valid; do
+#    echo 
+#    python local/format_data.py --config_file $conf_file --feat_scp fbank/$x/feats.scp --text_file data/$x/text --cmvn_file $cmvn_file --store_folder $save_folder/$x --manifest $manifest/$x
+#done
