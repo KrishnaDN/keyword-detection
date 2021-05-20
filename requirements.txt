@@ -1,3 +1,5 @@
 torch
 librosa
 yaml
+kaldi_io
+kaldiio
