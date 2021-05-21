@@ -14,7 +14,6 @@ dataset_conf:
   spec_substitute: True
   max_frames: 98
 
-
 model:
   type: transformer
   front_end_type : None

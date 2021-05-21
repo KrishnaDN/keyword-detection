@@ -12,6 +12,7 @@ from PIL.Image import BICUBIC
 from torch.utils.data import Dataset, DataLoader
 import kaldi_io
 import math
+import sys
 import numpy as np
 from kws.dataset.helpers import create_dict, map_key2label,collate_fun
 from torch.utils.data import DataLoader
@@ -147,6 +148,18 @@ class Augmentation(object):
 
 class AudioDataset(Augmentation):
     def __init__(self, data_file, cmvn_file, labels, feat_dim, spec_augment=True, spec_substitute=True, max_frames=98):
+        """ Dataset
+
+        Args:
+            data_file: Input data file (feat.scp)
+            cmvn_file: cmvn file computed after feature extraction step (global_cmvn)
+            labels: list of all the labels. for example ['cat', 'dog',.......]
+            feat_dim: integer (40)
+            spec_augment: Do you want to apply spec_augment? (True of False)
+            spec_substitute: Do you want to apply spectral substitution? (True of False)
+            max_frames: integer ( for example 98)
+        """
+
         super(AudioDataset, self).__init__(cmvn_file, labels) 
         self.data_file = data_file
         self.spec_augment = spec_augment
@@ -194,3 +207,4 @@ if __name__=='__main__':
     print(train_dataset.__getitem__(1))
     labels = params['data']['labels']
     data_loader = DataLoader(train_dataset,shuffle=True, batch_size=10, num_workers=4, collate_fn=collate_fun)
+    
