@@ -18,11 +18,12 @@ from kws.dataset.helpers import create_dict, map_key2label,collate_fun
 from torch.utils.data import DataLoader
 
 class Augmentation(object):
-    def __init__(self,cmvn_file, labels):
+    def __init__(self,cmvn_file, 
+                 labels):
         self.cmvn_file = cmvn_file
         self._load_kaldi_cmvn
         self.label_dict = create_dict(labels)
-    
+
     @property
     def _load_kaldi_cmvn(self,):
         means = []
@@ -147,7 +148,14 @@ class Augmentation(object):
         return mat, label
 
 class AudioDataset(Augmentation):
-    def __init__(self, data_file, cmvn_file, labels, feat_dim, spec_augment=True, spec_substitute=True, max_frames=98):
+    def __init__(self, 
+                 data_file, 
+                 cmvn_file, 
+                 labels, 
+                 feat_dim, 
+                 spec_augment=True, 
+                 spec_substitute=True, 
+                 max_frames=98):
         """ Dataset
 
         Args:
@@ -160,7 +168,8 @@ class AudioDataset(Augmentation):
             max_frames: integer ( for example 98)
         """
 
-        super(AudioDataset, self).__init__(cmvn_file, labels) 
+        super(AudioDataset, self).__init__(cmvn_file, 
+                                           labels) 
         self.data_file = data_file
         self.spec_augment = spec_augment
         self.spec_substitute = spec_substitute
@@ -190,7 +199,7 @@ class AudioDataset(Augmentation):
             features.append(self._spec_substitute(feat))
             labels.append(label)
         return torch.Tensor(features).unsqueeze(1), torch.LongTensor(labels)
-
+        
 
 
 
@@ -207,4 +216,3 @@ if __name__=='__main__':
     print(train_dataset.__getitem__(1))
     labels = params['data']['labels']
     data_loader = DataLoader(train_dataset,shuffle=True, batch_size=10, num_workers=4, collate_fn=collate_fun)
-    
