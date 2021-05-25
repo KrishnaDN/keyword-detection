@@ -3,3 +3,4 @@ librosa
 yaml
 kaldi_io
 kaldiio
+einops
