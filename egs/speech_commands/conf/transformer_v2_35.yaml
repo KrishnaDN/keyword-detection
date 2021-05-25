@@ -39,10 +39,13 @@ train:
     eps: 1.0e-9
     weight_decay: 1.0e-6
     amsgrad: False
-  scheduler_type: cosine
+  scheduler_type: linear-warmup-exp-decay
   scheduler:
-    warmup_steps: 12000
-    factor: 1.0
+    warmup_steps: 10000
+    decay_start: 15000
+    peak_lr: 0.001
+    final_lr: 0.00001
+    decay_factor: 0.1
   clip_grad: 5
   epochs: 80
   accum_steps: 4
