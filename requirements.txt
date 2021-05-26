@@ -4,3 +4,4 @@ yaml
 kaldi_io
 kaldiio
 einops
+tensorboardX

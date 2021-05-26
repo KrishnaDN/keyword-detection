@@ -4,8 +4,6 @@ import numpy as np
 
 class BaseScheduler(object):
     def __init__(self, optimizer, stepwise=False):
-
-        # Attach optimizer
         self.optimizer = optimizer
         self.global_step = 0
         self.global_epoch = 0
@@ -15,11 +13,9 @@ class BaseScheduler(object):
         self.initial_lr()
 
     def get_epoch_lr(self, epoch=None):
-        # Compute learning rate epoch by epoch
         raise NotImplementedError
 
     def get_step_lr(self, step=None):
-        # Compute learning rate step by step
         raise NotImplementedError
 
     def set_lr(self, lr=None):
@@ -74,7 +70,7 @@ class LinearStepScheduler(BaseScheduler):
 
     def get_step_lr(self, step):
         return get_linear_lr(step, 0, self.final_step, self.start_lr, self.final_lr)
-
+        
 
 class LinearEpochScheduler(BaseScheduler):
     def __init__(self, optimizer, final_epoch, start_lr, final_lr):

@@ -8,6 +8,7 @@ data:
   test: './egs/speech_commands/fbank/test/feats.scp'
   cmvn_file: './egs/speech_commands/fbank/train_sp/global_cmvn'
   
+  
 dataset_conf:
   feat_dim: 40
   spec_augment: True
@@ -15,7 +16,7 @@ dataset_conf:
   max_frames: 98
 
 model:
-  type: transformer
+  model_type: kws_transformer
   model_params:
     input_size: [98,40]
     patch_size: [2,40]
@@ -45,10 +46,12 @@ train:
     decay_start: 15000
     peak_lr: 0.001
     final_lr: 0.00001
-    decay_factor: 0.1
+    decay_factor: 2
   clip_grad: 5
   epochs: 80
   accum_steps: 4
   grad_noise: 0.0
   load_model: False
-  save_name: transformer_v2_35
+  batch_size: 10
+  model_dir: transformer_v2_35
+  exp_dir: './egs/speech_commands/exp'

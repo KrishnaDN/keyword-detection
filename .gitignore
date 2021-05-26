@@ -5,3 +5,6 @@ data2/
 manifest/
 data/
 *.pyc
+*.pt
+events*
+exp/
