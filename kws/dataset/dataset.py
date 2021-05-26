@@ -143,7 +143,6 @@ class Augmentation(object):
         mat = kaldi_io.read_mat(x[1])
         mat = mat - self.mean
         mat = mat * self.istd
-        print(key)
         label = self.label_dict[map_key2label(key)]
         return mat, label
 

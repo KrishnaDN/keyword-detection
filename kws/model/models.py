@@ -44,7 +44,8 @@ class KWSTransformer(BaseModel):
         x = self.to_latent(x)
         probs = self.mlp_head(x)
         loss = self.compute_loss(probs, target)
-    
+        return loss, torch.topk(probs,1)[1].squeeze(1)
+        
     def compute_loss(self, probs, target):
         loss = self.crit(probs, target)
         return loss
@@ -60,7 +61,7 @@ class KWSTransformer(BaseModel):
         x = x.mean(dim = 1) if self.pool == 'mean' else x[:, 0]
         x = self.to_latent(x)
         probs = self.mlp_head(x)
-        return probs
+        return torch.topk(probs,1)[1].squeeze(1)
         
     
 class MatchBoxNet(BaseModel):
