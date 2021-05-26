@@ -55,3 +55,11 @@ train:
   batch_size: 10
   model_dir: transformer_v2_35
   exp_dir: './egs/speech_commands/exp'
+
+eval:
+  average_model:
+    dst_model: 'average_final.pt'
+    num: 5
+    val_best: True
+    min_epoch: 5
+    max_epoch: 10000

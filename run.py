@@ -15,6 +15,10 @@ if __name__ == '__main__':
                         default=0,
                         help='gpu id for this local rank, -1 for cpu')
     parser.add_argument('--checkpoint', help='checkpoint model')
+    parser.add_argument('--is_eval',
+                        type=bool,
+                        default=False,
+                        help='If its the evaluation phase?')
     parser.add_argument('--tensorboard_dir',
                         default='tensorboard',
                         help='tensorboard log dir')
@@ -54,6 +58,7 @@ if __name__ == '__main__':
     distributed = args.world_size > 1
     with open(args.config) as f:
         params = yaml.safe_load(f)
-        
-    Trainer(params, args)
+    
+    trainer = Trainer(params, args)
+    trainer.evaluate()
     

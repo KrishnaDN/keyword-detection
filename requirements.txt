@@ -5,3 +5,5 @@ kaldi_io
 kaldiio
 einops
 tensorboardX
+sklearn
+tqdm

@@ -2,7 +2,8 @@ import logging
 from contextlib import nullcontext
 import torch
 from torch.nn.utils import clip_grad_norm_
-
+from sklearn.metrics import accuracy_score
+import tqdm
 class Executor:
     def __init__(self):
         self.step = 0
@@ -81,3 +82,25 @@ class Executor:
                                       total_loss / num_seen_utts))
 
         return total_loss, num_seen_utts
+    
+    
+    def evaluation(self, model, data_loader, device):
+        ''' Evaluation
+        '''
+        model.eval()
+        num_seen_utts = 0
+        total_loss = 0.0
+        num_total_batch = len(data_loader)
+        gt_labels , pred_labels = list(), list()
+        with torch.no_grad():
+            for batch_idx, (feats, target) in enumerate(tqdm.tqdm(data_loader)):
+                assert feats.shape[0]==1
+                feats = feats.to(device)
+                num_utts = target.size(0)
+                if num_utts == 0:
+                    continue
+                predictions= model.inference(feats)
+                gt_labels.append(int(target[0].cpu().numpy()))
+                pred_labels.append(int(predictions[0].cpu().numpy()))
+        test_acc = accuracy_score(gt_labels, pred_labels)
+        return test_acc
