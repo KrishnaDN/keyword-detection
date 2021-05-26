@@ -1,6 +1,5 @@
 from .scheduler import  ConstantValueScheduler, LinearStepScheduler , LinearEpochScheduler, ExponentialScheduler, StepwiseExponentialScheduler,TransformerScheduler, LinearWarmUpAndExpDecayScheduler
 import torch
-from kws.bin.utils import save_checkpoint, load_checkpoint
 from kws.bin.executor import Executor
 
 

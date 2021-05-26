@@ -14,140 +14,176 @@ from torch.utils.data import DataLoader
 from kws.dataset.dataset import AudioDataset
 from kws.dataset.helpers import collate_fun
 from kws.model import Models
-from kws.bin import load_checkpoint, save_checkpoint
+from kws.utils import load_checkpoint, save_checkpoint, average_models
 from kws.bin import BuildOptimizer, BuildScheduler
 from kws.bin import Executor
 warnings.filterwarnings("ignore")
 
 
-
-def initialize_model(params):
-    model = Models[params['model']['model_type']](params['model'])
-    return model
-
-
-def Trainer(params, args):
-    cmvn_file = params['data']['cmvn_file']
-    data_file = params['data']['train']
-    labels = params['data']['labels']
-    train_dataset = AudioDataset(data_file, cmvn_file, labels, **params['dataset_conf'])
+class Trainer:
+    def __init__(self, params, args):
+        self.params = params
+        self.args = args
     
-    cv_dataset_conf = copy.deepcopy(params['dataset_conf'])
-    cv_dataset_conf['spec_augment'] = False
-    cv_dataset_conf['spec_substitute'] = False
-    cmvn_file = params['data']['cmvn_file']
-    data_file = params['data']['valid']
-    labels = params['data']['labels']
-    cv_dataset = AudioDataset(data_file, cmvn_file, labels, **cv_dataset_conf)
-    distributed = args.world_size > 1
-    if distributed:
-        logging.info('training on multiple gpus, this gpu {}'.format(args.gpu))
-        dist.init_process_group(args.dist_backend,
-                                init_method=args.init_method,
-                                world_size=args.world_size,
-                                rank=args.rank)
-        train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_dataset, shuffle=True)
-        cv_sampler = torch.utils.data.distributed.DistributedSampler(
-            cv_dataset, shuffle=False)
-    else:
-        train_sampler = None
-        cv_sampler = None
-
-    train_data_loader = DataLoader(train_dataset,
-                                   collate_fn=collate_fun,
-                                   sampler=train_sampler,
-                                   shuffle=(train_sampler is None),
-                                   batch_size=params['train']['batch_size'],
-                                   num_workers=args.num_workers)
-    cv_data_loader = DataLoader(cv_dataset,
-                                collate_fn=collate_fun,
-                                sampler=cv_sampler,
-                                shuffle=False,
-                                batch_size=params['train']['batch_size'],
-                                num_workers=args.num_workers)
-    model = initialize_model(params)
-    print(model)
-    executor = Executor()
+    @property
+    def initialize_model(self,):
+        model = Models[self.params['model']['model_type']](self.params['model'])
+        return model
     
-    if args.checkpoint is not None:
-        infos = load_checkpoint(model, args.checkpoint)
-    else:
-        infos = {}
-    start_epoch = infos.get('epoch', -1) + 1
-    cv_loss = infos.get('cv_loss', 0.0)
-    step = infos.get('step', -1)
-
-    num_epochs = params['train']['epochs']
-    model_dir = os.path.join(params['train']['exp_dir'],params['train']['model_dir'])
-    writer = None
-    if args.rank == 0:
-        os.makedirs(model_dir, exist_ok=True)
-        exp_id = os.path.basename(model_dir)
-        writer = SummaryWriter(os.path.join(model_dir, exp_id))
-
-    if distributed:
-        assert (torch.cuda.is_available())
-        model.cuda()
-        model = torch.nn.parallel.DistributedDataParallel(
-            model, find_unused_parameters=True)
-        device = torch.device("cuda")
-    else:
-        use_cuda = args.gpu >= 0 and torch.cuda.is_available()
+    
+    def evaluate(self,):
+        test_dataset_conf = copy.deepcopy(self.params['dataset_conf'])
+        test_dataset_conf['spec_augment'] = False
+        test_dataset_conf['spec_substitute'] = False
+        cmvn_file = self.params['data']['cmvn_file']
+        data_file = self.params['data']['valid']
+        labels = self.params['data']['labels']
+        test_sampler = None
+        test_dataset = AudioDataset(data_file, cmvn_file, labels, **test_dataset_conf)
+        test_data_loader = DataLoader(test_dataset,
+                                    collate_fn=collate_fun,
+                                    sampler=test_sampler,
+                                    shuffle=False,
+                                    batch_size=1,
+                                    num_workers=self.args.num_workers)
+        model = self.initialize_model
+        src_path = os.path.join(self.params['train']['exp_dir'], self.params['train']['model_dir'])
+        self.params['eval']['average_model']['dst_model'] = os.path.join(src_path, self.params['eval']['average_model']['dst_model'])
+        try:
+            average_models(src_path, **self.params['eval']['average_model']) 
+            load_checkpoint(model=model, path=self.params['eval']['average_model']['dst_model'])
+        except:
+            raise 
+        use_cuda = self.args.gpu >= 0 and torch.cuda.is_available()
         device = torch.device('cuda' if use_cuda else 'cpu')
         model = model.to(device)
+        executor = Executor()
+        test_acc = executor.evaluation(model, test_data_loader, device)
+        print(f'Evaluation data accuracy {test_acc*100}')
 
-    optimizer = optimizer = BuildOptimizer[params['train']['optimizer_type']](
-        filter(lambda p: p.requires_grad, model.parameters()), **params['train']['optimizer']
-    )
-    scheduler = BuildScheduler[params['train']['scheduler_type']](optimizer, **params['train']['scheduler'])
-    final_epoch = None
-    params['rank'] = args.rank
-    params['is_distributed'] = distributed
-    if start_epoch == 0 and args.rank == 0:
-        save_model_path = os.path.join(model_dir, 'init.pt')
-        save_checkpoint(model, save_model_path)
-    
-    executor.step = step
-    scheduler.step()
-    for epoch in range(start_epoch, num_epochs):
+
+    @staticmethod
+    def train(self,params, args):
+        cmvn_file = self.params['data']['cmvn_file']
+        data_file = self.params['data']['train']
+        labels = self.params['data']['labels']
+        train_dataset = AudioDataset(data_file, cmvn_file, labels, **self.params['dataset_conf'])
+        cv_dataset_conf = copy.deepcopy(self.params['dataset_conf'])
+        cv_dataset_conf['spec_augment'] = False
+        cv_dataset_conf['spec_substitute'] = False
+        cmvn_file = self.params['data']['cmvn_file']
+        data_file = self.params['data']['valid']
+        labels = self.params['data']['labels']
+        cv_dataset = AudioDataset(data_file, cmvn_file, labels, **cv_dataset_conf)
+        distributed = self.args.world_size > 1
         if distributed:
-            train_sampler.set_epoch(epoch)
-        lr = optimizer.param_groups[0]['lr']
-        logging.info('Epoch {} TRAIN info lr {}'.format(epoch, lr))
-        executor.train(model, optimizer, scheduler, train_data_loader, device,
-                       writer, params)
-        total_loss, num_seen_utts = executor.cv(model, cv_data_loader, device,
-                                                params)
-        if args.world_size > 1:
-            # all_reduce expected a sequence parameter, so we use [num_seen_utts].
-            num_seen_utts = torch.Tensor([num_seen_utts]).to(device)
-            # the default operator in all_reduce function is sum.
-            dist.all_reduce(num_seen_utts)
-            total_loss = torch.Tensor([total_loss]).to(device)
-            dist.all_reduce(total_loss)
-            cv_loss = total_loss[0] / num_seen_utts[0]
-            cv_loss = cv_loss.item()
+            logging.info('training on multiple gpus, this gpu {}'.format(self.args.gpu))
+            dist.init_process_group(self.args.dist_backend,
+                                    init_method=self.args.init_method,
+                                    world_size=self.args.world_size,
+                                    rank=self.args.rank)
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                train_dataset, shuffle=True)
+            cv_sampler = torch.utils.data.distributed.DistributedSampler(
+                cv_dataset, shuffle=False)
         else:
-            cv_loss = total_loss / num_seen_utts
+            train_sampler = None
+            cv_sampler = None
 
-        logging.info('Epoch {} CV info cv_loss {}'.format(epoch, cv_loss))
-        if args.rank == 0:
-            save_model_path = os.path.join(model_dir, '{}.pt'.format(epoch))
-            save_checkpoint(
-                model, save_model_path, {
-                    'epoch': epoch,
-                    'lr': lr,
-                    'cv_loss': cv_loss,
-                    'step': executor.step
-                })
-            writer.add_scalars('epoch', {'cv_loss': cv_loss, 'lr': lr}, epoch)
-        final_epoch = epoch
+        train_data_loader = DataLoader(train_dataset,
+                                    collate_fn=collate_fun,
+                                    sampler=train_sampler,
+                                    shuffle=(train_sampler is None),
+                                    batch_size=self.params['train']['batch_size'],
+                                    num_workers=self.args.num_workers)
+        cv_data_loader = DataLoader(cv_dataset,
+                                    collate_fn=collate_fun,
+                                    sampler=cv_sampler,
+                                    shuffle=False,
+                                    batch_size=self.params['train']['batch_size'],
+                                    num_workers=self.args.num_workers)
+        model = self.initialize_model(self.params)
+        print(model)
+        executor = Executor()
+        
+        if self.args.checkpoint is not None:
+            infos = load_checkpoint(model, self.args.checkpoint)
+        else:
+            infos = {}
+        start_epoch = infos.get('epoch', -1) + 1
+        cv_loss = infos.get('cv_loss', 0.0)
+        step = infos.get('step', -1)
 
-    if final_epoch is not None and args.rank == 0:
-        final_model_path = os.path.join(model_dir, 'final.pt')
-        os.symlink('{}.pt'.format(final_epoch), final_model_path)
-    
+        num_epochs = self.params['train']['epochs']
+        model_dir = os.path.join(self.params['train']['exp_dir'],self.params['train']['model_dir'])
+        writer = None
+        if self.args.rank == 0:
+            os.makedirs(model_dir, exist_ok=True)
+            exp_id = os.path.basename(model_dir)
+            writer = SummaryWriter(os.path.join(model_dir, exp_id))
+
+        if distributed:
+            assert (torch.cuda.is_available())
+            model.cuda()
+            model = torch.nn.parallel.DistributedDataParallel(
+                model, find_unused_parameters=True)
+            device = torch.device("cuda")
+        else:
+            use_cuda = self.args.gpu >= 0 and torch.cuda.is_available()
+            device = torch.device('cuda' if use_cuda else 'cpu')
+            model = model.to(device)
+
+        optimizer = optimizer = BuildOptimizer[self.params['train']['optimizer_type']](
+            filter(lambda p: p.requires_grad, model.parameters()), **self.params['train']['optimizer']
+        )
+        scheduler = BuildScheduler[self.params['train']['scheduler_type']](optimizer, **self.params['train']['scheduler'])
+        final_epoch = None
+        self.params['rank'] = self.args.rank
+        self.params['is_distributed'] = distributed
+        if start_epoch == 0 and self.args.rank == 0:
+            save_model_path = os.path.join(model_dir, 'init.pt')
+            save_checkpoint(model, save_model_path)
+        
+        executor.step = step
+        scheduler.step()
+        for epoch in range(start_epoch, num_epochs):
+            if distributed:
+                train_sampler.set_epoch(epoch)
+            lr = optimizer.param_groups[0]['lr']
+            logging.info('Epoch {} TRAIN info lr {}'.format(epoch, lr))
+            executor.train(model, optimizer, scheduler, train_data_loader, device,
+                        writer, self.params)
+            total_loss, num_seen_utts = executor.cv(model, cv_data_loader, device,
+                                                    self.params)
+            if self.args.world_size > 1:
+                # all_reduce expected a sequence parameter, so we use [num_seen_utts].
+                num_seen_utts = torch.Tensor([num_seen_utts]).to(device)
+                # the default operator in all_reduce function is sum.
+                dist.all_reduce(num_seen_utts)
+                total_loss = torch.Tensor([total_loss]).to(device)
+                dist.all_reduce(total_loss)
+                cv_loss = total_loss[0] / num_seen_utts[0]
+                cv_loss = cv_loss.item()
+            else:
+                cv_loss = total_loss / num_seen_utts
+
+            logging.info('Epoch {} CV info cv_loss {}'.format(epoch, cv_loss))
+            if self.args.rank == 0:
+                save_model_path = os.path.join(model_dir, '{}.pt'.format(epoch))
+                save_checkpoint(
+                    model, save_model_path, {
+                        'epoch': epoch,
+                        'lr': lr,
+                        'cv_loss': cv_loss,
+                        'step': executor.step
+                    })
+                writer.add_scalars('epoch', {'cv_loss': cv_loss, 'lr': lr}, epoch)
+            final_epoch = epoch
+
+        if final_epoch is not None and self.args.rank == 0:
+            final_model_path = os.path.join(model_dir, 'final.pt')
+            os.symlink('{}.pt'.format(final_epoch), final_model_path)
+        
     
     
 
