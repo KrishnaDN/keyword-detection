@@ -16,7 +16,7 @@ dataset_conf:
   max_frames: 98
 
 model:
-  model_type: kws_transformer
+  model_type: mlp_mixer
   model_params:
     input_size: [98,40]
     patch_size: [2,40]
@@ -40,20 +40,19 @@ train:
     eps: 1.0e-9
     weight_decay: 1.0e-6
     amsgrad: False
-  scheduler_type: linear-warmup-exp-decay
+  scheduler_type: transformer
   scheduler:
-    warmup_steps: 10000
-    decay_start: 15000
-    peak_lr: 0.001
-    final_lr: 0.00001
-    decay_factor: 0.1
+    model_size: 64
+    warmup_steps: 5000
+    factor: 1.0
+
   clip_grad: 5
   epochs: 80
   accum_steps: 4
   grad_noise: 0.0
   load_model: False
-  batch_size: 10
-  model_dir: transformer_v2_35
+  batch_size: 200
+  model_dir: mlp_mixer_v2_35
   exp_dir: './egs/speech_commands/exp'
 
 eval:

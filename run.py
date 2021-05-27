@@ -16,8 +16,8 @@ if __name__ == '__main__':
                         help='gpu id for this local rank, -1 for cpu')
     parser.add_argument('--checkpoint', help='checkpoint model')
     parser.add_argument('--is_eval',
-                        type=bool,
-                        default=False,
+                        type=str,
+                        default='no',
                         help='If its the evaluation phase?')
     parser.add_argument('--tensorboard_dir',
                         default='tensorboard',
@@ -60,5 +60,9 @@ if __name__ == '__main__':
         params = yaml.safe_load(f)
     
     trainer = Trainer(params, args)
-    trainer.evaluate()
+    print(args)
+    if args.is_eval=='no':
+        trainer.train()
+    else:
+        trainer.evaluate()
     

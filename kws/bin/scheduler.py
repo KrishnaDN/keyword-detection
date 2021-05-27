@@ -36,7 +36,10 @@ class BaseScheduler(object):
         self.global_step += 1
         if self.stepwise:
             self.lr = self.get_step_lr(step=self.global_step)
-
+            self.set_lr()
+        else:
+            self.set_lr()
+        
     def epoch(self):
         self.global_epoch += 1
         if not self.stepwise:
@@ -70,7 +73,7 @@ class LinearStepScheduler(BaseScheduler):
 
     def get_step_lr(self, step):
         return get_linear_lr(step, 0, self.final_step, self.start_lr, self.final_lr)
-        
+
 
 class LinearEpochScheduler(BaseScheduler):
     def __init__(self, optimizer, final_epoch, start_lr, final_lr):
@@ -124,13 +127,14 @@ class TransformerScheduler(BaseScheduler):
 
 class LinearWarmUpAndExpDecayScheduler(BaseScheduler):
     def __init__(self, optimizer, warmup_steps, decay_start, peak_lr, final_lr, decay_factor):
-
+        
         self.warmup_steps = warmup_steps
         self.decay_start = decay_start
         self.peak_lr = peak_lr
         self.final_lr = final_lr
         self.decay_factor = decay_factor
-
+        
+        
         assert self.decay_start > self.warmup_steps and self.decay_factor < 1.0
         super(LinearWarmUpAndExpDecayScheduler, self).__init__(optimizer, stepwise=True)
 
@@ -145,6 +149,9 @@ class LinearWarmUpAndExpDecayScheduler(BaseScheduler):
                 self.peak_lr
             )
             ))
-
+        
+    def get_exp_decay(self, step):
+         return 1.0/(1.0+(self.peak_lr/self.total_iters)) * 0.001
+    
     def get_expdecay_lr(self, step):
         return math.pow(self.lr, self.decay_factor)

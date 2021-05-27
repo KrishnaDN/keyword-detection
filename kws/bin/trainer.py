@@ -62,8 +62,8 @@ class Trainer:
         print(f'Evaluation data accuracy {test_acc*100}')
 
 
-    @staticmethod
-    def train(self,params, args):
+    
+    def train(self,):
         cmvn_file = self.params['data']['cmvn_file']
         data_file = self.params['data']['train']
         labels = self.params['data']['labels']
@@ -102,7 +102,7 @@ class Trainer:
                                     shuffle=False,
                                     batch_size=self.params['train']['batch_size'],
                                     num_workers=self.args.num_workers)
-        model = self.initialize_model(self.params)
+        model = self.initialize_model
         print(model)
         executor = Executor()
         
@@ -133,7 +133,7 @@ class Trainer:
             device = torch.device('cuda' if use_cuda else 'cpu')
             model = model.to(device)
 
-        optimizer = optimizer = BuildOptimizer[self.params['train']['optimizer_type']](
+        optimizer = BuildOptimizer[self.params['train']['optimizer_type']](
             filter(lambda p: p.requires_grad, model.parameters()), **self.params['train']['optimizer']
         )
         scheduler = BuildScheduler[self.params['train']['scheduler_type']](optimizer, **self.params['train']['scheduler'])

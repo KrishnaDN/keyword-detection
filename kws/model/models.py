@@ -5,11 +5,11 @@ from .keyword_transformer import Transformer, Attention
 from argparse import Namespace
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
+from .mlp_mixer import MixerBlock
 
 class KWSTransformer(BaseModel):
     def __init__(self,params):
         super(KWSTransformer, self).__init__()
-        super().__init__()
         var = Namespace(**params['model_params'])
         num_patches = int(var.input_size[0]/var.patch_size[0] * var.input_size[1]/var.patch_size[1])
         patch_dim = var.channels * var.patch_size[0] * var.patch_size[1]
@@ -62,8 +62,49 @@ class KWSTransformer(BaseModel):
         x = self.to_latent(x)
         probs = self.mlp_head(x)
         return torch.topk(probs,1)[1].squeeze(1)
+
+
+class MLPMixer(nn.Module):
+    def __init__(self, params):
+        super(MLPMixer, self).__init__()
+        var = Namespace(**params['model_params'])
         
+        assert (var.input_size[0] % var.patch_size[0]) == 0, 'H must be divisible by patch size'
+        assert (var.input_size[1] % var.patch_size[1]) == 0, 'W must be divisible by patch size'
+        num_patches = int(var.input_size[0]/var.patch_size[0] * var.input_size[1]/var.patch_size[1])
+        patch_dim = var.channels * var.patch_size[0] * var.patch_size[1]
+        self.to_patch_embedding = nn.Sequential(
+            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = var.patch_size[0], p2 = var.patch_size[1]),
+            nn.Linear(patch_dim, var.dim),
+         )   
+        self.network = nn.Sequential(*[nn.Sequential(MixerBlock(var.dim,num_patches)) for _ in range(var.depth)])
+        self.pool = nn.AdaptiveAvgPool1d(1)
+        self.classifier = nn.Linear(var.dim, var.num_classes)
+        self.crit = nn.CrossEntropyLoss()
+        
+        
+    def forward(self,inputs, targets):
+        x = self.to_patch_embedding(inputs)
+        x = self.network(x)
+        probs = self.classifier(self.pool(x.transpose(1,2)).squeeze(2))
+        loss = self.compute_loss(probs, targets)
+        return loss, torch.topk(probs,1)[1].squeeze(1)
+
     
+    def compute_loss(self, probs, target):
+        loss = self.crit(probs, target)
+        return loss
+
+    def inference(self, inputs):
+        x = self.to_patch_embedding(inputs)
+        x = self.network(x)
+        probs = self.classifier(self.pool(x.transpose(1,2)).squeeze(2))
+        return torch.topk(probs,1)[1].squeeze(1)
+
+
+
+
+
 class MatchBoxNet(BaseModel):
     def __init__(self,params):
         super(MatchBoxNet, self).__init__()
