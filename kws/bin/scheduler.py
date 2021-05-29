@@ -134,7 +134,6 @@ class LinearWarmUpAndExpDecayScheduler(BaseScheduler):
         self.final_lr = final_lr
         self.decay_factor = decay_factor
         
-        
         assert self.decay_start > self.warmup_steps and self.decay_factor < 1.0
         super(LinearWarmUpAndExpDecayScheduler, self).__init__(optimizer, stepwise=True)
 
@@ -150,8 +149,6 @@ class LinearWarmUpAndExpDecayScheduler(BaseScheduler):
             )
             ))
         
-    def get_exp_decay(self, step):
-         return 1.0/(1.0+(self.peak_lr/self.total_iters)) * 0.001
     
     def get_expdecay_lr(self, step):
         return math.pow(self.lr, self.decay_factor)
