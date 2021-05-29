@@ -55,7 +55,7 @@ class Augmentation(object):
             variance[i] = 1.0 / math.sqrt(variance[i])
         self.mean = means
         self.istd = variance
-
+        
 
     @staticmethod
     def _spec_augmentation(x,

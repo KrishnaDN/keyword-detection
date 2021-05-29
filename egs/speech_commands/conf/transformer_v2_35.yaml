@@ -4,19 +4,19 @@ data:
   labels: ['backward','bed','bird','cat', 'dog','down','eight','five','follow','forward','four','go',
               'happy','house','learn','left','marvin','nine','no','off','on','one','right','seven','sheila','six','stop',
                   'three','tree','two','up','visual','wow','yes','zero']
-  train: './egs/speech_commands/data/train/wav.scp' 
-  valid: './egs/speech_commands/data/valid/wav.scp'
-  test: './egs/speech_commands/data/test/wav.scp'
-  
+  train: ./egs/speech_commands/fbank/train_sp/feats.scp 
+  valid: ./egs/speech_commands/fbank/valid/feats.scp
+  test: ./egs/speech_commands/fbank/test/feats.scp
+  cmvn_file: ./egs/speech_commands/fbank/train_sp/global_cmvn
+
 dataset_conf:
-  kaldi_offline: False
+  kaldi_offline: True
   kaldi_offline_conf:
     feat_dim: 40
     spec_augment: True
     spec_substitute: True
     max_frames: 98
-  
-  kaldi_online: True
+  kaldi_online: False
   kaldi_online_conf:
     speed_perturb: True
     speed_perturb_params: [1.0, 1.1, 0.9]
@@ -40,20 +40,19 @@ dataset_conf:
 model:
   model_type: kws_transformer
   model_params:
-    input_size: [98,80]
-    patch_size: [1,80]
+    input_size: [98,40]
+    patch_size: [1,40]
     channels: 1
     num_classes: 35
     dim: 64
     depth: 12
     dim_head: 64
-    heads: 4
+    heads: 3
     mlp_dim: 256
     dropout: 0.1
     emb_dropout: 0.1    
     pool: 'cls'
     label_smoothing: 0.1
-
 train:
   optimizer_type: adam
   optimizer:
@@ -65,15 +64,15 @@ train:
   scheduler_type: transformer
   scheduler:
     model_size: 64
-    warmup_steps: 2000
-    factor: 1.0
+    warmup_steps: 10000
+    factor: 0.8
   clip_grad: 5
   epochs: 80
   accum_steps: 4
   grad_noise: 0.0
   load_model: False
   batch_size: 128
-  model_dir: transformer_v2_35_kaldi_online
+  model_dir: transformer_v2_35_kaldi_offline
   exp_dir: './egs/speech_commands/exp'
 
 eval:

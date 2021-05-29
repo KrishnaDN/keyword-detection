@@ -87,6 +87,38 @@ class Augmentation(object):
             wav = wav * (1 << 15)
             return wav, sr
 
+
+    @property
+    def _compute_cmvn_stats(self,):
+        print('Computing CMVN stats')
+        features = []
+        for item in self.wav_paths:
+            wav_file = os.path.join(self.root_folder,item.split(' ')[1])
+            waveform, sample_rate = torchaudio.load_wav(wav_file)
+            mat = kaldi.fbank(
+                    waveform,
+                    num_mel_bins=self.feature_extraction_conf['mel_bins'],
+                    frame_length=self.feature_extraction_conf['frame_length'],
+                    frame_shift=self.feature_extraction_conf['frame_shift'],
+                    energy_floor=0.0,
+                    sample_frequency=sample_rate
+                )
+            features.append(mat.detach().numpy())
+        feats_stack = np.concatenate((features), axis=0)
+        mean_vec = np.mean(feats_stack, axis=0)
+        std_vec = np.std(feats_stack, axis=0)
+        datum = dict()
+        datum['mean_vec'] = mean_vec
+        datum['std_vec'] = std_vec
+        return datum
+        
+    
+    def _load_cmvn(self, cmvn_file):
+        print('*****Loading CMVN stats*****')
+        stats = np.load(cmvn_file, allow_pickle=True).item()
+        self.mean, self.std = np.expand_dims(stats['mean_vec'],axis=0), np.expand_dims(stats['std_vec'], axis=0)
+
+    
     def _load_feature(self, x):
         key = x[0]
         wav_file = os.path.join(self.root_folder,x[1])
@@ -105,14 +137,13 @@ class Augmentation(object):
                 energy_floor=0.0,
                 sample_frequency=sample_rate
             )
+        assert mat.shape[1] == self.mean.shape[1]
         mat = mat.detach().numpy()
-        mean_vec = np.mean(mat,axis=0, keepdims=True)
-        std_vec = np.std(mat,axis=0, keepdims=True)
-       
-        mat_norm = (mat-mean_vec)/(std_vec+10e-6)
+        
+        mat_norm = (mat-self.mean)/(self.std+10e-10)
         label = self.label_dict[map_key2label(key)]
         return mat_norm, label
-    
+        
 
 class KaldiDataset(Augmentation):
     def __init__(self,
@@ -140,6 +171,7 @@ class KaldiDataset(Augmentation):
         self.max_frames = self.feature_extraction_conf['max_frames']
         self.label_dict = create_dict(self.labels)
         
+        
     def __len__(self):
         return len(self.wav_paths)
 
@@ -163,7 +195,7 @@ class KaldiDataset(Augmentation):
             features.append(self._spec_substitute(feat))
             labels.append(label)
         return torch.Tensor(features).unsqueeze(1), torch.LongTensor(labels)
-    
+
 
 if __name__=='__main__':
     import yaml
@@ -174,5 +206,5 @@ if __name__=='__main__':
     data_file = params['data']['train']
     labels = params['data']['labels']
     kaldi_dataset = KaldiDataset(data_folder, data_file, labels, **params['dataset_conf']['kaldi_online_conf'])
-    mat, label = kaldi_dataset.__getitem__(1)
-    
+    #mat, label = kaldi_dataset.__getitem__(1)
+    feats = kaldi_dataset._compute_cmvn_stats

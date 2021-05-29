@@ -8,6 +8,7 @@ import warnings
 import torch
 import torch.distributed as dist
 import torch.optim as optim
+import numpy as np
 import yaml
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
@@ -17,6 +18,7 @@ from kws.model import Models
 from kws.utils import load_checkpoint, save_checkpoint, average_models
 from kws.bin import BuildOptimizer, BuildScheduler
 from kws.bin import Executor
+
 warnings.filterwarnings("ignore")
 
 class Trainer:
@@ -46,7 +48,9 @@ class Trainer:
             test_dataset_conf['spec_augment'] = False
             test_dataset_conf['spec_substitute'] = False
             data_file = self.params['data']['valid']
+            cmvn_file = os.path.join(self.params['train']['exp_dir'], self.params['train']['model_dir'],'global_cmvn.npy')
             test_dataset = KaldiDataset(data_folder, data_file, labels, **test_dataset_conf)
+            test_dataset._load_cmvn(cmvn_file)
         else:
             print('*****Unknown Dataloader***')
             print('***** Please check your config file ***')
@@ -92,17 +96,25 @@ class Trainer:
             data_file = self.params['data']['train']
             labels = self.params['data']['labels']
             train_dataset = KaldiDataset(data_folder, data_file, labels, **self.params['dataset_conf']['kaldi_online_conf'])
+            cmvn_stats = train_dataset._compute_cmvn_stats
+            os.makedirs(os.path.join(self.params['train']['exp_dir'], self.params['train']['model_dir']), exist_ok=True)
+            cmvn_file = os.path.join(self.params['train']['exp_dir'], self.params['train']['model_dir'],'global_cmvn.npy')
+            print(f'Saving CMVN stats at {cmvn_file}')
+            np.save(cmvn_file, cmvn_stats)
+            train_dataset._load_cmvn(cmvn_file)
             cv_dataset_conf = copy.deepcopy(self.params['dataset_conf']['kaldi_online_conf'])
             cv_dataset_conf['speed_perturb'] = False
             cv_dataset_conf['spec_augment'] = False
             cv_dataset_conf['spec_substitute'] = False
             data_file = self.params['data']['valid']
+            cmvn_file = os.path.join(self.params['train']['exp_dir'], self.params['train']['model_dir'],'global_cmvn.npy')
             cv_dataset = KaldiDataset(data_folder, data_file, labels, **cv_dataset_conf)
+            cv_dataset._load_cmvn(cmvn_file)
+            
         else:
             print('*****Unknown Dataloader***')
             print('***** Please check your config file ***')
             
-        
         distributed = self.args.world_size > 1
         if distributed:
             logging.info('training on multiple gpus, this gpu {}'.format(self.args.gpu))
