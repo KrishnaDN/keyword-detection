@@ -11,14 +11,13 @@ import torch.optim as optim
 import yaml
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
-from kws.dataset.dataset import AudioDataset
+from kws.dataset import AudioDataset, KaldiDataset
 from kws.dataset.helpers import collate_fun
 from kws.model import Models
 from kws.utils import load_checkpoint, save_checkpoint, average_models
 from kws.bin import BuildOptimizer, BuildScheduler
 from kws.bin import Executor
 warnings.filterwarnings("ignore")
-
 
 class Trainer:
     def __init__(self, params, args):
@@ -30,16 +29,29 @@ class Trainer:
         model = Models[self.params['model']['model_type']](self.params['model'])
         return model
     
-    
     def evaluate(self,):
-        test_dataset_conf = copy.deepcopy(self.params['dataset_conf'])
-        test_dataset_conf['spec_augment'] = False
-        test_dataset_conf['spec_substitute'] = False
-        cmvn_file = self.params['data']['cmvn_file']
-        data_file = self.params['data']['valid']
-        labels = self.params['data']['labels']
+        if self.params['dataset_conf']['kaldi_offline']:
+            test_dataset_conf = copy.deepcopy(self.params['dataset_conf']['kaldi_offline_conf'])
+            test_dataset_conf['spec_augment'] = False
+            test_dataset_conf['spec_substitute'] = False
+            cmvn_file = self.params['data']['cmvn_file']
+            data_file = self.params['data']['test']
+            labels = self.params['data']['labels']
+            test_dataset = AudioDataset(data_file, cmvn_file, labels, **test_dataset_conf)
+        elif self.params['dataset_conf']['kaldi_online']:
+            data_folder = self.params['data']['data_folder']
+            labels = self.params['data']['labels']
+            test_dataset_conf = copy.deepcopy(self.params['dataset_conf']['kaldi_online_conf'])
+            test_dataset_conf['speed_perturb'] = False
+            test_dataset_conf['spec_augment'] = False
+            test_dataset_conf['spec_substitute'] = False
+            data_file = self.params['data']['valid']
+            test_dataset = KaldiDataset(data_folder, data_file, labels, **test_dataset_conf)
+        else:
+            print('*****Unknown Dataloader***')
+            print('***** Please check your config file ***')
+        
         test_sampler = None
-        test_dataset = AudioDataset(data_file, cmvn_file, labels, **test_dataset_conf)
         test_data_loader = DataLoader(test_dataset,
                                     collate_fn=collate_fun,
                                     sampler=test_sampler,
@@ -61,20 +73,36 @@ class Trainer:
         test_acc = executor.evaluation(model, test_data_loader, device)
         print(f'Evaluation data accuracy {test_acc*100}')
 
-
-    
+        
     def train(self,):
-        cmvn_file = self.params['data']['cmvn_file']
-        data_file = self.params['data']['train']
-        labels = self.params['data']['labels']
-        train_dataset = AudioDataset(data_file, cmvn_file, labels, **self.params['dataset_conf'])
-        cv_dataset_conf = copy.deepcopy(self.params['dataset_conf'])
-        cv_dataset_conf['spec_augment'] = False
-        cv_dataset_conf['spec_substitute'] = False
-        cmvn_file = self.params['data']['cmvn_file']
-        data_file = self.params['data']['valid']
-        labels = self.params['data']['labels']
-        cv_dataset = AudioDataset(data_file, cmvn_file, labels, **cv_dataset_conf)
+        if self.params['dataset_conf']['kaldi_offline']:
+            cmvn_file = self.params['data']['cmvn_file']
+            data_file = self.params['data']['train']
+            labels = self.params['data']['labels']
+            train_dataset = AudioDataset(data_file, cmvn_file, labels, **self.params['dataset_conf']['kaldi_offline_conf'])
+            cv_dataset_conf = copy.deepcopy(self.params['dataset_conf']['kaldi_offline_conf'])
+            cv_dataset_conf['spec_augment'] = False
+            cv_dataset_conf['spec_substitute'] = False
+            cmvn_file = self.params['data']['cmvn_file']
+            data_file = self.params['data']['valid']
+            labels = self.params['data']['labels']
+            cv_dataset = AudioDataset(data_file, cmvn_file, labels, **cv_dataset_conf)
+        elif self.params['dataset_conf']['kaldi_online']:
+            data_folder = self.params['data']['data_folder']
+            data_file = self.params['data']['train']
+            labels = self.params['data']['labels']
+            train_dataset = KaldiDataset(data_folder, data_file, labels, **self.params['dataset_conf']['kaldi_online_conf'])
+            cv_dataset_conf = copy.deepcopy(self.params['dataset_conf']['kaldi_online_conf'])
+            cv_dataset_conf['speed_perturb'] = False
+            cv_dataset_conf['spec_augment'] = False
+            cv_dataset_conf['spec_substitute'] = False
+            data_file = self.params['data']['valid']
+            cv_dataset = KaldiDataset(data_folder, data_file, labels, **cv_dataset_conf)
+        else:
+            print('*****Unknown Dataloader***')
+            print('***** Please check your config file ***')
+            
+        
         distributed = self.args.world_size > 1
         if distributed:
             logging.info('training on multiple gpus, this gpu {}'.format(self.args.gpu))
@@ -105,7 +133,6 @@ class Trainer:
         model = self.initialize_model
         print(model)
         executor = Executor()
-        
         if self.args.checkpoint is not None:
             infos = load_checkpoint(model, self.args.checkpoint)
         else:

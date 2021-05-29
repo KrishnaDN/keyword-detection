@@ -23,7 +23,7 @@ class Augmentation(object):
         self.cmvn_file = cmvn_file
         self._load_kaldi_cmvn
         self.label_dict = create_dict(labels)
-
+        
     @property
     def _load_kaldi_cmvn(self,):
         means = []
@@ -138,7 +138,6 @@ class Augmentation(object):
         Returns:
             (keys, feats, labels)
         """
-
         key = x[0]
         mat = kaldi_io.read_mat(x[1])
         mat = mat - self.mean
@@ -166,7 +165,7 @@ class AudioDataset(Augmentation):
             spec_substitute: Do you want to apply spectral substitution? (True of False)
             max_frames: integer ( for example 98)
         """
-
+        
         super(AudioDataset, self).__init__(cmvn_file, 
                                            labels) 
         self.data_file = data_file
@@ -199,6 +198,11 @@ class AudioDataset(Augmentation):
             labels.append(label)
         return torch.Tensor(features).unsqueeze(1), torch.LongTensor(labels)
         
+
+
+
+
+
 
 
 

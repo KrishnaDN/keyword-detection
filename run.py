@@ -7,6 +7,7 @@ import logging
 import torch
 import yaml
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='training your network')
     parser.add_argument('--config', required=True, help='config file')
@@ -43,7 +44,7 @@ if __name__ == '__main__':
                         default=None,
                         help='ddp init method')
     parser.add_argument('--num_workers',
-                        default=4,
+                        default=16,
                         type=int,
                         help='num of subprocess workers for reading')
 
