@@ -1,25 +1,47 @@
 data:
   name: v2_35
+  data_folder: './egs/speech_commands'
   labels: ['backward','bed','bird','cat', 'dog','down','eight','five','follow','forward','four','go',
               'happy','house','learn','left','marvin','nine','no','off','on','one','right','seven','sheila','six','stop',
                   'three','tree','two','up','visual','wow','yes','zero']
-  train: './egs/speech_commands/fbank/train_sp/feats.scp' 
-  valid: './egs/speech_commands/fbank/valid/feats.scp'
-  test: './egs/speech_commands/fbank/test/feats.scp'
-  cmvn_file: './egs/speech_commands/fbank/train_sp/global_cmvn'
-  
+  train: './egs/speech_commands/data/train/wav.scp' 
+  valid: './egs/speech_commands/data/valid/wav.scp'
+  test: './egs/speech_commands/data/test/wav.scp'
   
 dataset_conf:
-  feat_dim: 40
-  spec_augment: True
-  spec_substitute: True
-  max_frames: 98
+  kaldi_offline: False
+  kaldi_offline_conf:
+    feat_dim: 40
+    spec_augment: True
+    spec_substitute: True
+    max_frames: 98
+  
+  kaldi_online: True
+  kaldi_online_conf:
+    speed_perturb: True
+    speed_perturb_params: [1.0, 1.1, 0.9]
+    spec_augment: True
+    spec_augment_conf:
+          warp_for_time: False
+          num_t_mask: 2
+          num_f_mask: 2
+          max_t: 20
+          max_f: 5
+          max_w: 20
+    spec_substitute: True
+    feature_extraction_conf:
+      feature_type: 'fbank'
+      mel_bins: 80
+      frame_shift: 10
+      frame_length: 25
+      using_pitch: false
+      max_frames: 98
 
 model:
   model_type: kws_transformer
   model_params:
-    input_size: [98,40]
-    patch_size: [2,40]
+    input_size: [98,80]
+    patch_size: [1,80]
     channels: 1
     num_classes: 35
     dim: 64
@@ -40,20 +62,18 @@ train:
     eps: 1.0e-9
     weight_decay: 1.0e-6
     amsgrad: False
-  scheduler_type: linear-warmup-exp-decay
+  scheduler_type: transformer
   scheduler:
-    warmup_steps: 10000
-    decay_start: 15000
-    peak_lr: 0.001
-    final_lr: 0.00001
-    decay_factor: 0.1
+    model_size: 64
+    warmup_steps: 2000
+    factor: 1.0
   clip_grad: 5
   epochs: 80
   accum_steps: 4
   grad_noise: 0.0
   load_model: False
-  batch_size: 10
-  model_dir: transformer_v2_35
+  batch_size: 128
+  model_dir: transformer_v2_35_kaldi_online
   exp_dir: './egs/speech_commands/exp'
 
 eval:
