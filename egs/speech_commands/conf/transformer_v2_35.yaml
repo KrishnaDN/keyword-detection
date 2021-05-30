@@ -74,7 +74,7 @@ train:
   batch_size: 128
   model_dir: transformer_v2_35_kaldi_offline
   exp_dir: './egs/speech_commands/exp'
-
+  
 eval:
   average_model:
     dst_model: 'average_final.pt'
