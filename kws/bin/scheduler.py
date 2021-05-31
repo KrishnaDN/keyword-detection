@@ -123,8 +123,7 @@ class TransformerScheduler(BaseScheduler):
         
     def get_step_lr(self,step):
         return self.factor * self.model_size ** (-0.5) * min(step ** (-0.5), step * self.warmup_steps ** (-1.5))
-
-
+        
 class LinearWarmUpAndExpDecayScheduler(BaseScheduler):
     def __init__(self, optimizer, warmup_steps, decay_start, peak_lr, final_lr, decay_factor):
         
@@ -149,6 +148,5 @@ class LinearWarmUpAndExpDecayScheduler(BaseScheduler):
             )
             ))
         
-    
     def get_expdecay_lr(self, step):
         return math.pow(self.lr, self.decay_factor)
