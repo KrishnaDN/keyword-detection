@@ -7,7 +7,6 @@ import logging
 import torch
 import yaml
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='training your network')
     parser.add_argument('--config', required=True, help='config file')
